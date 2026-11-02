@@ -1,9 +1,9 @@
+
 pipeline {
     agent any
 
     environment {
         IMAGE_NAME = 'jenkins-learning-app'
-        IMAGE_TAG = 'v1'
     }
 
     stages {
@@ -24,35 +24,66 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                echo 'Building Docker image'
+                script {
+                    // Generate a unique image tag from the Git commit
+                    env.IMAGE_TAG = sh(
+                        script: 'git rev-parse --short=12 HEAD',
+                        returnStdout: true
+                    ).trim()
 
-                sh '''
-                    docker build \
-                      -t ${IMAGE_NAME}:${IMAGE_TAG} .
-                '''
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'dockerhub-credentials',
+                            usernameVariable: 'DOCKER_USER',
+                            passwordVariable: 'DOCKER_TOKEN'
+                        )
+                    ]) {
+                        env.IMAGE = "${env.DOCKER_USER}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
+
+                        sh 'docker build -t "$IMAGE" .'
+                    }
+                }
             }
         }
 
         stage('Verify Docker Image') {
             steps {
-                echo 'Checking generated image'
-
-                sh 'docker images ${IMAGE_NAME}'
-
                 echo 'Running application container'
+                sh 'docker run --rm "$IMAGE"'
+            }
+        }
 
-                sh 'docker run --rm ${IMAGE_NAME}:${IMAGE_TAG}'
+        stage('Push to Docker Hub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        set -eu
+                        printf '%s' "$DOCKER_TOKEN" |
+                            docker login --username "$DOCKER_USER" --password-stdin
+
+                        trap 'docker logout >/dev/null 2>&1 || true' EXIT
+
+                        echo "Pushing image: $IMAGE"
+                        docker push "$IMAGE"
+                    '''
+                }
             }
         }
     }
 
     post {
         success {
-            echo 'CI pipeline completed successfully!'
+            echo 'Docker image successfully published!'
         }
 
         failure {
-            echo 'CI pipeline failed. Check the console output.'
+            echo 'Pipeline failed. Check the console output.'
         }
 
         always {
