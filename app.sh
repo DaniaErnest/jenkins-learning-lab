@@ -1,11 +1,14 @@
 #!/bin/bash
 
 echo "================================"
-echo "WELCOME TO JENKINS CI/CD LAB"
+echo "JENKINS AUTOMATIC BUILD"
 echo "================================"
 
 echo "Application: Jenkins Learning Lab"
 echo "Environment: Development"
+
+echo "Commit information:"
+git log -1 --oneline
 
 echo "Running application checks..."
 
