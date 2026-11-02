@@ -1,48 +1,58 @@
 pipeline {
     agent any
 
-    stages {
-        stage('inspect') {
-            steps {
-                echo 'Starting Jenkins Pipeline'
+    environment {
+        IMAGE_NAME = 'jenkins-learning-app'
+        IMAGE_TAG = 'v1'
+    }
 
-                sh '''
-                    echo "Application: Jenkins Learning Lab"
-                    echo "Build Number: $BUILD_NUMBER"
-                    echo "Workspace: $WORKSPACE"
-                    echo "Git Commit:"
-                    git log -1 --oneline
-                '''
+    stages {
+        stage('Inspect') {
+            steps {
+                echo 'Inspecting application'
+                sh 'ls -la'
+                sh 'git log -1 --oneline'
             }
         }
+
         stage('Test') {
             steps {
-                echo 'Running application checks'
+                echo 'Running application tests'
+                sh 'bash app.sh'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo 'Building Docker image'
 
                 sh '''
-                    echo "Checking configuration..."
-                    echo "Checking dependencies..."
-
-                    echo "Simulating a test failure..."
-                    exit 1
-
-                    echo "Tests completed successfully"
+                    docker build \
+                      -t ${IMAGE_NAME}:${IMAGE_TAG} .
                 '''
             }
         }
-        stage('Build') {
+
+        stage('Verify Docker Image') {
             steps {
-                echo 'Application build stage completed'
+                echo 'Checking generated image'
+
+                sh 'docker images ${IMAGE_NAME}'
+
+                echo 'Running application container'
+
+                sh 'docker run --rm ${IMAGE_NAME}:${IMAGE_TAG}'
             }
         }
     }
+
     post {
         success {
-            echo 'Pipeline completed successfully!'
+            echo 'CI pipeline completed successfully!'
         }
 
         failure {
-            echo 'Pipeline failed. Check the logs.'
+            echo 'CI pipeline failed. Check the console output.'
         }
 
         always {
