@@ -18,7 +18,16 @@ pipeline {
         stage('Test') {
             steps {
                 echo 'Running application checks'
-                sh 'bash app.sh'
+
+                sh '''
+                    echo "Checking configuration..."
+                    echo "Checking dependencies..."
+
+                    echo "Simulating a test failure..."
+                    exit 1
+
+                    echo "Tests completed successfully"
+                '''
             }
         }
         stage('Build') {
